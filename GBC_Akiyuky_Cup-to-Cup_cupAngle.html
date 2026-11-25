@@ -20,6 +20,11 @@ canvas{width:100%;height:100%;display:block;touch-action:none}
 #spdbox .sr .v{width:44px;text-align:right;font-variant-numeric:tabular-nums}
 #spdbox button{background:#3a4250;color:#fff;border:0;border-radius:6px;padding:3px 8px;font-size:12px;margin-right:4px}
 #spdbox hr{border:0;border-top:1px solid #555;margin:5px 0}
+#cupbox{position:fixed;right:12px;top:calc(10px + env(safe-area-inset-top));padding:6px 9px;font-size:12px;line-height:1.35;z-index:5}
+#cupbox .sr{display:flex;align-items:center;gap:6px;margin:2px 0}
+#cupbox .sr .nm{white-space:nowrap}
+#cupbox .sr .v{width:44px;text-align:right;font-variant-numeric:tabular-nums}
+#cupbox button{background:#3a4250;color:#fff;border:0;border-radius:6px;padding:3px 8px;font-size:12px;margin-right:4px}
 #title{position:fixed;left:12px;top:10px;font-size:14px;padding:3px 8px}
 #info{position:fixed;right:12px;top:10px;font-size:12px;text-align:right;white-space:pre;padding:5px 8px;line-height:1.5}
 #legend{position:fixed;left:12px;top:40px;font-size:11px;line-height:1.5;padding:5px 8px;max-width:34vw;opacity:.9}
@@ -130,6 +135,7 @@ canvas{width:100%;height:100%;display:block;touch-action:none}
 <div id="info" class="pn"></div>
 <div id="legend" class="pn"></div>
 <div id="spdbox" class="pn"><b>駆動速度</b><div class="sr"><span class="nm" id="spn0"></span><input type="range" id="sp0" min="0" max="3" step="0.05" value="1"><span class="v" id="spv0"></span></div><div style="margin-top:4px"><button id="spsync">標準（×1）</button><button id="sporig" style="display:none">元の速度×1</button></div><div style="display:none"><input type="range" id="spk" min="0.6" max="1.8" step="0.01" value="1.17"><span id="spkn"></span><span id="spkv"></span><div id="spkh"></div></div></div>
+<div id="cupbox" class="pn"></div>
 <div id="ui" class="pn">
  <button id="play" class="on">⏸ 停止</button>
  <label>速度<input id="spd" type="range" min="0" max="4" step="0.05" value="1"></label>
@@ -169,6 +175,7 @@ canvas{width:100%;height:100%;display:block;touch-action:none}
  <label><input type="checkbox" data-ui="title">タイトル</label>
  <label><input type="checkbox" data-ui="info">経過・個数などの情報</label>
  <label><input type="checkbox" data-ui="legend">説明文</label>
+ <label><input type="checkbox" data-ui="cup">カップのふれ角パネル</label>
  <label><input type="checkbox" data-ui="spd">駆動速度パネル</label>
  <label><input type="checkbox" data-ui="bar">操作バー（下）</label>
  <label><input type="checkbox" data-ui="label">部品ラベル</label>
@@ -317,9 +324,9 @@ const CUPSW=(function(){
  return {set,get:()=>cur,BASE};
 })();
 {const q=new URLSearchParams(location.search);if(q.has('cup'))CUPSW.set(+q.get('cup'))}
-(function(){const box=document.getElementById('spdbox');if(!box)return;
+(function(){const box=document.getElementById('cupbox');if(!box)return;
  const d=document.createElement('div');
- d.innerHTML='<hr><b>カップのふれ角</b><div class="sr"><span class="nm" style="width:auto">45°</span><input type="range" id="cupr" min="45" max="180" step="1" value="'+CUPSW.get()+'" style="width:150px"><span class="nm" style="width:auto">180°</span><span class="v" id="cupv" style="width:44px">'+CUPSW.get()+'°</span></div>'+
+ d.innerHTML='<b>カップのふれ角</b><div class="sr"><span class="nm" style="width:auto">45°</span><input type="range" id="cupr" min="45" max="180" step="1" value="'+CUPSW.get()+'" style="width:150px"><span class="nm" style="width:auto">180°</span><span class="v" id="cupv" style="width:44px">'+CUPSW.get()+'°</span></div>'+
  '<div style="margin:3px 0">'+[45,90,110,135,150,180].map(a=>'<button class="cupb" data-a="'+a+'">'+a+'°</button>').join('')+'</div>'+
  '<div id="cuph" style="font-size:11px;opacity:.85"></div>'+
  '<div style="font-size:10.5px;opacity:.7;max-width:330px;white-space:normal;margin-top:2px">実験用：3つのカップ（とピニオン）の回転角だけを、往復の中央を中心に拡大・縮小します。ラック・クランクの動きは元のままです（135°以外ではピニオンとラックの歯は見た目上ずれます）。</div>';
@@ -1371,17 +1378,19 @@ function qMonitor(dt){
  if(fN>=90){const avg=fAcc/fN;fAcc=0;fN=0;
   if(qSel==='auto'&&qCur>1&&(avg>30||physMs>20)){if(++slowCnt>=2){qCur--;applyQ();toast('動作が重いため画質を「'+QN[qCur]+'」に下げました（☰ メニューで変更できます）')}}else slowCnt=0}}
 // ===================== 表示／非表示 =====================
-const UIK={title:'title',info:'info',legend:'legend',spd:'spdbox',bar:'ui',myb:'myfab'};
-const UIDEF={title:false,info:false,legend:false,spd:false,bar:true,label:false,myb:true};
+const UIK={title:'title',info:'info',legend:'legend',cup:'cupbox',spd:'spdbox',bar:'ui',myb:'myfab'};
+const UIDEF={title:false,info:false,legend:false,cup:true,spd:false,bar:false,label:false,myb:false};
 let UIS=Object.assign({},UIDEF);
-try{const j=JSON.parse(localStorage.getItem('gbc_ui_a26p')||'null');if(j)UIS=Object.assign(UIS,j)}catch(e){}
-{const q=qp.get('ui');if(q==='0'||q==='none')for(const k in UIS)UIS[k]=false;else if(q==='min')UIS={title:false,info:false,legend:false,spd:false,bar:true,label:false,myb:true}}
+try{const j=JSON.parse(localStorage.getItem('gbc_ui_a26p_cup')||'null');if(j)UIS=Object.assign(UIS,j)}catch(e){}
+{const q=qp.get('ui');if(q==='0'||q==='none')for(const k in UIS)UIS[k]=false;else if(q==='min')UIS={title:false,info:false,legend:false,cup:false,spd:false,bar:true,label:false,myb:true}}
 let UIprev=null;
 function applyUI(save){for(const k in UIK)$(UIK[k]).classList.toggle('hid',!UIS[k]);
  $('lbl').checked=!!UIS.label;$('lbs').style.display=UIS.label?'':'none';
  document.querySelectorAll('#uip input[data-ui]').forEach(c=>c.checked=!!UIS[c.dataset.ui]);
  $('uim').classList.toggle('faint',!Object.values(UIS).some(Boolean));
- if(save)try{localStorage.setItem('gbc_ui_a26p',JSON.stringify(UIS))}catch(e){}}
+ if(save)try{localStorage.setItem('gbc_ui_a26p_cup',JSON.stringify(UIS))}catch(e){} layoutCup()}
+function layoutCup(){const b=$('cupbox'),sp=$('spdbox');if(!b)return;const mob=matchMedia('(max-width:760px)').matches,sh=UIS.spd?sp.offsetHeight+8:0;if(mob){b.style.top='auto';b.style.bottom='calc('+((UIS.spd||UIS.bar)?140+sh:14)+'px + env(safe-area-inset-bottom))'}else{b.style.bottom='auto';b.style.top=UIS.spd?(118+sh)+'px':(UIS.info?'118px':'calc(10px + env(safe-area-inset-top))')}}
+addEventListener('resize',()=>layoutCup());
 function uiAll(on){if(on){UIS=Object.assign({},UIprev&&Object.values(UIprev).some(Boolean)?UIprev:UIDEF)}else{UIprev=Object.assign({},UIS);for(const k in UIS)UIS[k]=false}applyUI(true)}
 $('uim').onclick=e=>{e.stopPropagation();$('uip').classList.toggle('open')};
 document.querySelectorAll('#uip input[data-ui]').forEach(c=>c.onchange=()=>{UIS[c.dataset.ui]=c.checked;applyUI(true)});
