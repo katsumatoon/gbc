@@ -770,6 +770,8 @@ function spawnInto(k,count,start,layer0){
   placed.push([x,y,z]);W.setPos(start+i,x,y,z);i++}
  return i}
 let settling=false,settleLeft=0,spawnCb=null;
+// 開始時に「スパイラルリフトにボールがたまった状態」にする：機構を実際に PRE ステップ(=コマ)動かしてから表示を始める（?pre=0 で無効、?pre=○○ で長さ指定）
+const LIFT_PRE=qp.has('pre')?Math.max(0,Math.round(+qp.get('pre')||0)):990;let settleTot=240,preN=0,preOn=false;
 function spawn(n,cb){
  W.setBallsN(n);N=n;
  const area=BINS.map(b=>(b.x1-b.x0)*(b.z1-b.z0)),A=area.reduce((a,b)=>a+b,0);
@@ -779,10 +781,13 @@ function spawn(n,cb){
  for(let k=0;left>0&&k<8;k++){const p=spawnInto(0,left,off,2+k);off+=p;left-=p}
  for(let i=off;i<n;i++){const b=BINS[0];W.setPos(i,b.x0+30+(i%5)*30,floorY(b,b.x0+60,b.z0+40)-320-Math.floor(i/5)*38,b.z0+40+(i%3)*40)}
  for(let k=0;k<NALL;k++)W.setSpd(k,0);
- settling=true;settleLeft=240;spawnCb=cb||null;snapPrev()}
-function settleChunk(){const t0=performance.now();do{W.settle(1,0);settleLeft--}while(settleLeft>0&&performance.now()-t0<18);if(settleLeft<=0)finishSpawn()}
+ settling=true;preN=LIFT_PRE;preOn=false;if(preN>0){for(let k=0;k<NALL;k++){W.mods[k].clk=0;W.mods[k].clkPrev=0}}settleTot=240+preN;settleLeft=settleTot;spawnCb=cb||null;snapPrev()}
+function settleChunk(){const t0=performance.now();do{
+  if(settleLeft>preN){W.settle(1,0)}
+  else{if(!preOn){preOn=true;for(let k=0;k<NALL;k++)W.setSpd(k,1)}W.step()}
+  settleLeft--}while(settleLeft>0&&performance.now()-t0<(settleLeft<preN?40:18));if(settleLeft<=0)finishSpawn()}
 function finishSpawn(){const n=N;
- for(let k=0;k<NALL;k++){W.mods[k].clk=0;W.mods[k].clkPrev=0}
+ for(let k=0;k<NALL;k++){if(preN>0){W.mods[k].clkPrev=W.mods[k].clk}else{W.mods[k].clk=0;W.mods[k].clkPrev=0}}
  W.T=0;tF=0;recycled=0;DBGS.pen=[0,0,0,0];DBGS.penCnt=0;DBGS.ovl=0;DBGS.ovlMin=99;gate=[0,0,0,0];tEnter=[[],[],[],[]];hist=[];lastBin=[];lastCnt=[];groundT=[];
  for(let q=0;q<n;q++){hist.push([]);lastBin.push(binOf(W.x[q],W.y[q],W.z[q]));lastCnt.push(-1e9);groundT.push(0)}
  applySpd();legend();settling=false;snapPrev();alpha=1;fWarm=150;const cb=spawnCb;spawnCb=null;if(cb)cb()}
@@ -1222,7 +1227,7 @@ function frame(now){if(AR.on)return;const dt=Math.min(.1,(now-tPrev)/1000);tPrev
  myMarkers(panes,toCss);rideBoxSync();
  if(physReady&&!settling){const cn=[0,0,0,0];for(let i=0;i<N;i++){const k=binOf(W.x[i],W.y[i],W.z[i]);if(k>=0)cn[k]++}
  const sec=Math.max(W.T/FPSM,1e-6),win=Math.min(40,sec);
- $('info').textContent='経過 '+(W.T/FPSM).toFixed(1)+' s\u3000ボール '+N+' 個\u3000出口から出た・こぼれ→入口へ戻した数 '+recycled+'\n入力トレー内 '+cn[0]+'\u3000機構内・搬送中ほか '+(N-cn[0])+'\n物理 '+physMs.toFixed(1)+' ms/描画\u3000'+Math.round(1000/Math.max(1,dtEma))+'fps\u3000画質 '+QN[qCur]+(qSel==='auto'?'（自動）':'')+(DBG?dbgText():'')+followText()}else $('info').textContent=physReady&&settling?'ボールを落ち着かせています… '+Math.round((240-settleLeft)/2.4)+'%':'物理エンジンを初期化中…'
+ $('info').textContent='経過 '+(W.T/FPSM).toFixed(1)+' s\u3000ボール '+N+' 個\u3000出口から出た・こぼれ→入口へ戻した数 '+recycled+'\n入力トレー内 '+cn[0]+'\u3000機構内・搬送中ほか '+(N-cn[0])+'\n物理 '+physMs.toFixed(1)+' ms/描画\u3000'+Math.round(1000/Math.max(1,dtEma))+'fps\u3000画質 '+QN[qCur]+(qSel==='auto'?'（自動）':'')+(DBG?dbgText():'')+followText()}else $('info').textContent=physReady&&settling?(settleLeft>preN?'ボールを落ち着かせています… ':'スパイラルリフトにボールを積み込んでいます… ')+Math.round((settleTot-settleLeft)*100/settleTot)+'%':'物理エンジンを初期化中…'
  if(++frames==2)window.__ready=1;
  requestAnimationFrame(frame)}
 setBg('#d4ecf7');
